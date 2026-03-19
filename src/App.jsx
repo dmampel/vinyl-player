@@ -185,7 +185,7 @@ export default function App() {
     <div
       className={`w-full font-sans text-gray-800 relative ${isDesktop ? 'h-screen overflow-hidden' : 'min-h-screen overflow-y-auto pb-12'}`}
       style={{
-        backgroundImage: "url('/bg2.png')",
+        backgroundImage: `url(${isDesktop ? '/bg2.png' : '/bg-movile.png'})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat'
