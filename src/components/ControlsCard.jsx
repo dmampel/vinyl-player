@@ -16,15 +16,15 @@ export default function ControlsCard({ currentTrack, currentTime, duration, form
 
             {/* Buttons */}
             <div className="flex items-center justify-between mb-6 px-2 pointer-events-auto" onPointerDownCapture={(e) => e.stopPropagation()}>
-                <button className="text-gray-400 hover:text-gray-800 transition-colors"><Shuffle className="w-4 h-4" /></button>
+                <button className="text-gray-400 hover:text-gray-800 cursor-pointer hover:scale-150 transition-all duration-300"><Shuffle className="w-4 h-4" /></button>
                 <div className="flex items-center gap-6">
-                    <button onClick={playPrev} className="text-gray-600 hover:text-black transition-colors disabled:opacity-30" disabled={playlist.length === 0}><SkipBack className="w-5 h-5 fill-current" /></button>
-                    <button onClick={togglePlay} className="w-14 h-14 bg-[#111] text-white rounded-full flex items-center justify-center hover:scale-105 transition-transform shadow-[0_10px_20px_rgba(0,0,0,0.2)] disabled:opacity-50" disabled={playlist.length === 0}>
+                    <button onClick={playPrev} className="text-gray-600 hover:text-black cursor-pointer hover:scale-150 transition-all duration-300 disabled:opacity-30" disabled={playlist.length === 0}><SkipBack className="w-5 h-5 fill-current" /></button>
+                    <button onClick={togglePlay} className="w-14 h-14 bg-[#111] text-white rounded-full flex items-center justify-center cursor-pointer hover:scale-110 transition-all duration-300shadow-[0_10px_20px_rgba(0,0,0,0.2)] disabled:opacity-50" disabled={playlist.length === 0}>
                         {isPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-1" />}
                     </button>
-                    <button onClick={playNext} className="text-gray-600 hover:text-black transition-colors disabled:opacity-30" disabled={playlist.length === 0}><SkipForward className="w-5 h-5 fill-current" /></button>
+                    <button onClick={playNext} className="text-gray-600 hover:text-black cursor-pointer hover:scale-150 transition-all duration-300 disabled:opacity-30" disabled={playlist.length === 0}><SkipForward className="w-5 h-5 fill-current" /></button>
                 </div>
-                <button className="text-gray-400 hover:text-gray-800 transition-colors"><Repeat className="w-4 h-4" /></button>
+                <button className="text-gray-400 hover:text-gray-800 cursor-pointer hover:scale-150 transition-all duration-300"><Repeat className="w-4 h-4" /></button>
             </div>
 
             {/* Volume */}
