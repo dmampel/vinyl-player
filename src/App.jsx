@@ -7,7 +7,7 @@ import ControlsCard from './components/ControlsCard';
 import PlaylistCard from './components/PlaylistCard';
 import WidgetButton from './components/WidgetButton';
 import UploadWidget from './components/UploadWidget';
-import { getAllTracks, saveTrack, deleteTrack, clearAllTracks } from './utils/db';
+import { getAllTracks, saveTrack, deleteTrack, clearAllTracks, savePlaylistOrder, getPlaylistOrder } from './utils/db';
 
 export default function App() {
   const [playlist, setPlaylist] = useState([]);
@@ -51,26 +51,46 @@ export default function App() {
       const name = file.name.replace(/\.[^/.]+$/, "");
       try {
         const id = await saveTrack(file, name);
-        newTracks.push({
+        const trackObj = {
           id,
           file,
           url: URL.createObjectURL(file),
           name
-        });
+        };
+        newTracks.push(trackObj);
       } catch (error) {
         console.error("Error saving track to DB:", error);
       }
     }
 
-    setPlaylist(prev => [...prev, ...newTracks]);
+    const updatedPlaylist = [...playlist, ...newTracks];
+    setPlaylist(updatedPlaylist);
+    
+    // Save new order
+    await savePlaylistOrder(updatedPlaylist.map(t => t.id));
 
     if (currentIndex === -1 && newTracks.length > 0) {
       setCurrentIndex(0);
     }
   };
 
-  const handleRemoveTrack = async (e, index) => {
-    e.stopPropagation();
+  const handleReorder = async (newOrder) => {
+    const currentTrackId = currentTrack?.id;
+    setPlaylist(newOrder);
+    
+    const newIndex = newOrder.findIndex(t => t.id === currentTrackId);
+    if (newIndex !== -1) {
+      setCurrentIndex(newIndex);
+    }
+
+    try {
+      await savePlaylistOrder(newOrder.map(t => t.id));
+    } catch (error) {
+      console.error("Error saving playlist order:", error);
+    }
+  };
+
+  const handleRemoveTrack = async (index) => {
     const trackToRemove = playlist[index];
     
     try {
@@ -79,7 +99,9 @@ export default function App() {
       }
       
       const newPlaylist = [...playlist];
-      URL.revokeObjectURL(newPlaylist[index].url);
+      if (newPlaylist[index].url) {
+        URL.revokeObjectURL(newPlaylist[index].url);
+      }
       newPlaylist.splice(index, 1);
       setPlaylist(newPlaylist);
 
@@ -100,7 +122,7 @@ export default function App() {
   const handleClearPlaylist = async () => {
     try {
       await clearAllTracks();
-      playlist.forEach(t => URL.revokeObjectURL(t.url));
+      playlist.forEach(t => t.url && URL.revokeObjectURL(t.url));
       setPlaylist([]);
       setCurrentIndex(-1);
       setIsPlaying(false);
@@ -176,13 +198,26 @@ export default function App() {
     }
   };
 
-  // Load tracks from DB on mount
   useEffect(() => {
     const loadTracks = async () => {
       try {
-        const savedTracks = await getAllTracks();
+        const [savedTracks, order] = await Promise.all([
+          getAllTracks(),
+          getPlaylistOrder()
+        ]);
+
         if (savedTracks.length > 0) {
-          const formattedTracks = savedTracks.map(track => ({
+          let sortedTracks = savedTracks;
+          if (order && order.length > 0) {
+            sortedTracks = order
+              .map(id => savedTracks.find(t => t.id === id))
+              .filter(Boolean);
+            
+            const remainingTracks = savedTracks.filter(t => !order.includes(t.id));
+            sortedTracks = [...sortedTracks, ...remainingTracks];
+          }
+
+          const formattedTracks = sortedTracks.map(track => ({
             ...track,
             url: URL.createObjectURL(track.file)
           }));
@@ -199,36 +234,32 @@ export default function App() {
 
   useEffect(() => {
     if (audioRef.current && currentTrack) {
-      audioRef.current.src = currentTrack.url;
-      audioRef.current.load();
+      // Only update src if it's different to avoid interrupting play
+      if (audioRef.current.src !== currentTrack.url) {
+        audioRef.current.src = currentTrack.url;
+        audioRef.current.load();
+      }
+      
       if (isPlaying) {
         audioRef.current.play().catch(error => {
           console.error("Autoplay failed:", error);
-          setIsPlaying(false);
-          setShowAutoplayOverlay(true);
+          if (error.name === 'NotAllowedError' || error.name === 'NotSupportedError') {
+            setIsPlaying(false);
+            setShowAutoplayOverlay(true);
+          }
         });
+      } else {
+        audioRef.current.pause();
       }
-    } else if (!currentTrack && audioRef.current) {
-      audioRef.current.src = "";
-      setProgress(0);
-      setCurrentTime(0);
-      setDuration(0);
     }
-  }, [currentIndex, currentTrack]);
+  }, [currentIndex, currentTrack, isPlaying]);
 
-  useEffect(() => {
-    if (isPlaying && currentIndex === 0 && playlist.length > 0 && audioRef.current?.paused) {
-      audioRef.current.play().catch(console.error);
-    }
-  }, [currentIndex, isPlaying, playlist]);
-
-  // Handle responsive desktop toggle
   const [isDesktop, setIsDesktop] = useState(true);
   const [uploadExpanded, setUploadExpanded] = useState(true);
 
   useEffect(() => {
     const handleResize = () => setIsDesktop(window.innerWidth >= 1024);
-    handleResize(); // initial check
+    handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
@@ -246,13 +277,13 @@ export default function App() {
       }}
     >
 
-      {/* Absolute Header (non-draggable) */}
+      {/* Absolute Header */}
       <div className={`text-center z-0 ${isDesktop ? 'absolute top-8 left-0 right-0 pointer-events-none' : 'mt-8 mb-6'}`}>
-        <h1 className="text-[28px] md:text-[32px] font-bold text-[#111] mb-1 tracking-tight">Really Cool Vinyl</h1>
-        <p className="text-[#888] font-medium text-[13px] md:text-[15px]">{isDesktop ? 'Widget Canvas' : 'Music Player'}</p>
+        <h1 className="text-[28px] md:text-[32px] lg:text-[95px] font-bold text-[#111] mb-1 tracking-tight">Really Cool Vinyl</h1>
+        <p className="text-[#888] font-light text-[13px] md:text-[15px] lg:text-[50px]">{isDesktop ? 'Widget Canvas' : 'Music Player'}</p>
       </div>
 
-      <main ref={constraintsRef} className={`${isDesktop ? 'absolute inset-0 z-10 p-6 pt-32 h-full w-full pointer-events-auto' : 'flex flex-col items-center gap-6 px-4 w-full max-w-[400px] mx-auto z-10 relative'}`}>
+      <main ref={constraintsRef} className={`${isDesktop ? 'absolute inset-0 z-10 p-6 pt-32 h-full w-full' : 'flex flex-col items-center gap-6 px-4 w-full max-w-[400px] mx-auto z-10 relative'}`}>
 
         <AnimatePresence>
           {(isDesktop ? widgets.vinyl : true) && (
@@ -264,11 +295,9 @@ export default function App() {
               whileDrag={isDesktop ? { scale: 1.02, cursor: "grabbing" } : {}}
               initial={isDesktop ? { opacity: 0, scale: 0.9, x: 100, y: 20 } : { opacity: 1, scale: 1, x: 0, y: 0 }}
               animate={isDesktop ? { opacity: 1, scale: 1 } : { opacity: 1, scale: 1, x: 0, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              className={isDesktop ? "absolute cursor-grab active:cursor-grabbing" : "w-full flex justify-center"}
+              className={isDesktop ? "absolute cursor-grab" : "w-full flex justify-center"}
               style={isDesktop ? { zIndex: 10 } : {}}
             >
-              {/* Vinyl Card Widget */}
               <VinylCard isPlaying={isPlaying} currentTrack={currentTrack} />
             </motion.div>
           )}
@@ -282,10 +311,9 @@ export default function App() {
               whileDrag={isDesktop ? { scale: 1.02, cursor: "grabbing" } : {}}
               initial={isDesktop ? { opacity: 0, scale: 0.9, x: 550, y: 100 } : { opacity: 1, scale: 1, x: 0, y: 0 }}
               animate={isDesktop ? { opacity: 1, scale: 1 } : { opacity: 1, scale: 1, x: 0, y: 0 }}
-              className={isDesktop ? "absolute cursor-grab active:cursor-grabbing" : "w-full flex justify-center"}
+              className={isDesktop ? "absolute cursor-grab" : "w-full flex justify-center"}
               style={isDesktop ? { zIndex: 11 } : {}}
             >
-              {/* Track Info Card */}
               <TrackInfoCard currentTrack={currentTrack} currentTime={currentTime} duration={duration} formatTime={formatTime} />
             </motion.div>
           )}
@@ -299,19 +327,15 @@ export default function App() {
               whileDrag={isDesktop ? { scale: 1.02, cursor: "grabbing" } : {}}
               initial={isDesktop ? { opacity: 0, scale: 0.9, x: 500, y: 200 } : { opacity: 1, scale: 1, x: 0, y: 0 }}
               animate={isDesktop ? { opacity: 1, scale: 1 } : { opacity: 1, scale: 1, x: 0, y: 0 }}
-              className={isDesktop ? "absolute cursor-grab active:cursor-grabbing" : "w-full flex justify-center"}
+              className={isDesktop ? "absolute cursor-grab" : "w-full flex justify-center"}
               style={isDesktop ? { zIndex: 12 } : {}}
             >
-              {/* Controls Card */}
               <ControlsCard currentTrack={currentTrack} currentTime={currentTime} duration={duration} formatTime={formatTime} progress={progress} handleSeek={handleSeek} handleVolumeChange={handleVolumeChange} volume={volume} playPrev={playPrev} togglePlay={togglePlay} playNext={playNext} isPlaying={isPlaying} playlist={playlist} />
             </motion.div>
           )}
 
-          {/* Permanent Upload Widget (Fixed) */}
           <motion.div
             key="upload"
-            initial={isDesktop ? { opacity: 0, scale: 0.9 } : { opacity: 1, scale: 1, x: 0, y: 0 }}
-            animate={isDesktop ? { opacity: 1, scale: 1 } : { opacity: 1, scale: 1, x: 0, y: 0 }}
             className={isDesktop ? "absolute top-6 left-6" : "w-full flex justify-center"}
             style={isDesktop ? { zIndex: 40 } : {}}
           >
@@ -327,10 +351,9 @@ export default function App() {
               whileDrag={isDesktop ? { scale: 1.02, cursor: "grabbing" } : {}}
               initial={isDesktop ? { opacity: 0, scale: 0.9, x: 900, y: 20 } : { opacity: 1, scale: 1, x: 0, y: 0 }}
               animate={isDesktop ? { opacity: 1, scale: 1 } : { opacity: 1, scale: 1, x: 0, y: 0 }}
-              className={isDesktop ? "absolute cursor-grab active:cursor-grabbing" : "w-full flex justify-center"}
+              className={isDesktop ? "absolute cursor-grab" : "w-full flex justify-center"}
               style={isDesktop ? { zIndex: 14 } : {}}
             >
-              {/* Playlist Card */}
               <PlaylistCard
                 playlist={playlist}
                 currentIndex={currentIndex}
@@ -339,6 +362,7 @@ export default function App() {
                 isPlaying={isPlaying}
                 setIsPlaying={setIsPlaying}
                 handleRemoveTrack={handleRemoveTrack}
+                handleReorder={handleReorder}
               />
             </motion.div>
           )}
@@ -346,7 +370,7 @@ export default function App() {
 
       </main>
 
-      {/* Toolbar / Widget Menu - Desktop Only */}
+      {/* Toolbar */}
       {isDesktop && (
         <div className=" absolute bottom-6 left-1/2 -translate-x-1/2 bg-white/10 backdrop-blur-xl border border-white/20 shadow-[0_8px_32px_0_rgba(0,0,0,0.2)] rounded-2xl flex items-center gap-2 p-2 z-50 bg-gradient-to-t from-white/10 to-transparent">
           <WidgetButton toggleWidget={toggleWidget} widgets={widgets} widgetType="vinyl" title="Vinyl Disc" icon={<Disc className="w-6 h-6" />} />
@@ -369,32 +393,18 @@ export default function App() {
             }}
             className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-md flex flex-col items-center justify-center cursor-pointer group"
           >
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="flex flex-col items-center"
-            >
+            <div className="flex flex-col items-center">
               <div className="w-24 h-24 rounded-full bg-white/20 border-2 border-white/50 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-500 shadow-2xl">
                 <Play className="w-10 h-10 text-white fill-white ml-1" />
               </div>
               <h2 className="text-white text-2xl font-bold tracking-tight mb-2">Toca para empezar</h2>
               <p className="text-white/60 font-medium">Pulsa en cualquier parte para activar la música</p>
-              
-              <motion.div 
-                animate={{ y: [0, 10, 0] }}
-                transition={{ duration: 2, repeat: Infinity }}
-                className="mt-12 text-white/30"
-              >
-                <div className="w-6 h-10 border-2 border-white/30 rounded-full flex justify-center p-1">
-                  <div className="w-1.5 h-1.5 bg-white/30 rounded-full" />
-                </div>
-              </motion.div>
-            </motion.div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <audio ref={audioRef} onTimeUpdate={handleTimeUpdate} onLoadedMetadata={handleLoadedMetadata} onEnded={handleEnded} className="hidden" />
+      <audio ref={audioRef} onTimeUpdate={handleTimeUpdate} onLoadedMetadata={handleLoadedMetadata} onEnded={handleEnded} />
     </div>
   );
 }
