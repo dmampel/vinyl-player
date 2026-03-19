@@ -2,7 +2,7 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Shuffle, Repeat } from 'lu
 
 export default function ControlsCard({ currentTrack, currentTime, duration, formatTime, progress, handleSeek, handleVolumeChange, volume, playPrev, togglePlay, playNext, isPlaying, playlist }) {
     return (
-        <div className="bg-white rounded-[1.5rem] shadow-[0_15px_40px_-15px_rgba(0,0,0,0.1)] border border-gray-100/50 p-6 px-8 w-full sm:w-[320px] md:w-[380px]">
+        <div className="bg-white/10 backdrop-blur-xs border border-white rounded-[1.5rem] shadow-[0_8px_32px_0_rgba(0,0,0,10)] p-6 px-8 w-full sm:w-[320px] md:w-[380px] bg-gradient-to-br from-white/20 to-transparent">
             {/* Progress */}
             <div className="mb-6 flex items-center gap-4">
                 <span className="text-[11px] font-bold text-gray-400 w-10 text-left pointer-events-none">{formatTime(currentTime)}</span>

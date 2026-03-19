@@ -2,8 +2,8 @@ import { X } from 'lucide-react';
 
 export default function PlaylistCard({ playlist, currentIndex, handleClearPlaylist, setCurrentIndex, isPlaying, setIsPlaying, handleRemoveTrack }) {
     return (
-        <div className="bg-white rounded-[1.2rem] shadow-[0_15px_40px_-15px_rgba(0,0,0,0.1)] border border-gray-100/50 overflow-hidden flex flex-col min-h-[150px] w-full sm:w-[320px] md:w-[380px]">
-            <div className="flex justify-between items-center p-5 px-6 border-b border-gray-100">
+        <div className="bg-white/10 backdrop-blur-xs border border-white rounded-[1.2rem] shadow-[0_8px_32px_0_rgba(0,0,0,10)] overflow-hidden flex flex-col min-h-[150px] w-full sm:w-[320px] md:w-[380px] bg-gradient-to-br from-white/20 to-transparent cursor-grab active:cursor-grabbing">
+            <div className="flex justify-between items-center p-5 px-6 border-b border-white/20">
                 <h3 className="text-[14px] font-bold text-[#111] pointer-events-none">
                     Playlist <span className="text-gray-400 font-normal ml-1">({playlist.length})</span>
                 </h3>

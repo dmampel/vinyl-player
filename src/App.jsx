@@ -12,7 +12,7 @@ export default function App() {
   const [playlist, setPlaylist] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(-1);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [progress, setProgress] = useState(0); 
+  const [progress, setProgress] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(0.7);
@@ -25,10 +25,10 @@ export default function App() {
     upload: true,
     playlist: false
   });
-  
+
   const audioRef = useRef(null);
   const constraintsRef = useRef(null);
-  
+
   const formatTime = (time) => {
     if (isNaN(time)) return '0:00';
     const mins = Math.floor(time / 60);
@@ -41,15 +41,15 @@ export default function App() {
   const handleUpload = (e) => {
     const files = Array.from(e.target.files);
     if (!files.length) return;
-    
+
     const newTracks = files.filter(f => f.type.startsWith('audio/')).map(file => ({
       file,
       url: URL.createObjectURL(file),
       name: file.name.replace(/\.[^/.]+$/, "")
     }));
-    
+
     setPlaylist(prev => [...prev, ...newTracks]);
-    
+
     if (currentIndex === -1 && newTracks.length > 0) {
       setCurrentIndex(0);
     }
@@ -61,7 +61,7 @@ export default function App() {
     URL.revokeObjectURL(newPlaylist[index].url);
     newPlaylist.splice(index, 1);
     setPlaylist(newPlaylist);
-    
+
     if (newPlaylist.length === 0) {
       setCurrentIndex(-1);
       setIsPlaying(false);
@@ -86,7 +86,7 @@ export default function App() {
       setCurrentIndex(0);
       return;
     }
-    
+
     if (isPlaying) {
       audioRef.current?.pause();
       setIsPlaying(false);
@@ -171,7 +171,7 @@ export default function App() {
   // Handle responsive desktop toggle
   const [isDesktop, setIsDesktop] = useState(true);
   const [uploadExpanded, setUploadExpanded] = useState(true);
-  
+
   useEffect(() => {
     const handleResize = () => setIsDesktop(window.innerWidth >= 1024);
     handleResize(); // initial check
@@ -179,11 +179,19 @@ export default function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const toggleWidget = (key) => setWidgets(prev => ({...prev, [key]: !prev[key]}));
+  const toggleWidget = (key) => setWidgets(prev => ({ ...prev, [key]: !prev[key] }));
 
   return (
-    <div className={`w-full bg-gray-200 font-sans text-gray-800 ${isDesktop ? 'h-screen overflow-hidden' : 'min-h-screen overflow-y-auto pb-12'}`}>
-      
+    <div
+      className={`w-full font-sans text-gray-800 relative ${isDesktop ? 'h-screen overflow-hidden' : 'min-h-screen overflow-y-auto pb-12'}`}
+      style={{
+        backgroundImage: "url('/bg2.png')",
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat'
+      }}
+    >
+
       {/* Absolute Header (non-draggable) */}
       <div className={`text-center z-0 ${isDesktop ? 'absolute top-8 left-0 right-0 pointer-events-none' : 'mt-8 mb-6'}`}>
         <h1 className="text-[28px] md:text-[32px] font-bold text-[#111] mb-1 tracking-tight">Really Cool Vinyl</h1>
@@ -191,10 +199,10 @@ export default function App() {
       </div>
 
       <main ref={constraintsRef} className={`${isDesktop ? 'absolute inset-0 z-10 p-6 pt-32 h-full w-full pointer-events-auto' : 'flex flex-col items-center gap-6 px-4 w-full max-w-[400px] mx-auto z-10 relative'}`}>
-        
+
         <AnimatePresence>
           {(isDesktop ? widgets.vinyl : true) && (
-            <motion.div 
+            <motion.div
               key="vinyl"
               drag={isDesktop}
               dragConstraints={constraintsRef}
@@ -212,7 +220,7 @@ export default function App() {
           )}
 
           {(isDesktop ? widgets.trackInfo : true) && (
-            <motion.div 
+            <motion.div
               key="trackInfo"
               drag={isDesktop}
               dragConstraints={constraintsRef}
@@ -229,7 +237,7 @@ export default function App() {
           )}
 
           {(isDesktop ? widgets.controls : true) && (
-            <motion.div 
+            <motion.div
               key="controls"
               drag={isDesktop}
               dragConstraints={constraintsRef}
@@ -246,7 +254,7 @@ export default function App() {
           )}
 
           {/* Permanent Upload Widget (Fixed) */}
-          <motion.div 
+          <motion.div
             key="upload"
             initial={isDesktop ? { opacity: 0, scale: 0.9 } : { opacity: 1, scale: 1, x: 0, y: 0 }}
             animate={isDesktop ? { opacity: 1, scale: 1 } : { opacity: 1, scale: 1, x: 0, y: 0 }}
@@ -257,13 +265,13 @@ export default function App() {
           </motion.div>
 
           {(isDesktop ? widgets.playlist : true) && (
-            <motion.div 
+            <motion.div
               key="playlist"
               drag={isDesktop}
               dragConstraints={constraintsRef}
               dragMomentum={false}
               whileDrag={isDesktop ? { scale: 1.02, cursor: "grabbing" } : {}}
-              initial={isDesktop ? { opacity: 0, scale: 0.9, x: 900, y: -80 } : { opacity: 1, scale: 1, x: 0, y: 0 }}
+              initial={isDesktop ? { opacity: 0, scale: 0.9, x: 900, y: 20 } : { opacity: 1, scale: 1, x: 0, y: 0 }}
               animate={isDesktop ? { opacity: 1, scale: 1 } : { opacity: 1, scale: 1, x: 0, y: 0 }}
               className={isDesktop ? "absolute cursor-grab active:cursor-grabbing" : "w-full flex justify-center"}
               style={isDesktop ? { zIndex: 14 } : {}}
@@ -286,7 +294,7 @@ export default function App() {
 
       {/* Toolbar / Widget Menu - Desktop Only */}
       {isDesktop && (
-        <div className=" absolute bottom-6 left-1/2 -translate-x-1/2 bg-white/80 backdrop-blur-xl border border-gray-200/50 shadow-[0_20px_40px_rgba(0,0,0,0.1)] rounded-2xl flex items-center gap-2 p-2 z-50">
+        <div className=" absolute bottom-6 left-1/2 -translate-x-1/2 bg-white/10 backdrop-blur-xl border border-white/20 shadow-[0_8px_32px_0_rgba(0,0,0,0.2)] rounded-2xl flex items-center gap-2 p-2 z-50 bg-gradient-to-t from-white/10 to-transparent">
           <WidgetButton toggleWidget={toggleWidget} widgets={widgets} widgetType="vinyl" title="Vinyl Disc" icon={<Disc className="w-6 h-6" />} />
           <WidgetButton toggleWidget={toggleWidget} widgets={widgets} widgetType="trackInfo" title="Track Info" icon={<Music className="w-6 h-6" />} />
           <WidgetButton toggleWidget={toggleWidget} widgets={widgets} widgetType="controls" title="Controls" icon={<Sliders className="w-6 h-6" />} />

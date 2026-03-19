@@ -8,11 +8,12 @@ export default function UploadWidget({ isDesktop, uploadExpanded, setUploadExpan
                 width: (!isDesktop || uploadExpanded) ? (typeof window !== 'undefined' && window.innerWidth >= 640 ? 320 : 380) : 56,
                 height: (!isDesktop || uploadExpanded) ? 220 : 56,
                 borderRadius: (!isDesktop || uploadExpanded) ? 32 : 50,
-                backgroundColor: (!isDesktop || uploadExpanded) ? '#fafafa' : '#111'
+                backgroundColor: (!isDesktop || uploadExpanded) ? 'rgba(255, 255, 255, 0.1)' : 'rgba(17, 17, 17, 0.8)',
+                backdropFilter: 'blur(5px)'
             }}
             transition={{ type: "spring", stiffness: 300, damping: 25 }}
             onMouseLeave={() => isDesktop && setUploadExpanded(false)}
-            className={`border-[1.5px] border-gray-300 flex flex-col items-center justify-center relative overflow-hidden shadow-[0_15px_40px_-15px_rgba(0,0,0,0.1)] ${uploadExpanded ? 'border-dashed hover:bg-white' : 'border-solid border-transparent shadow-[0_10px_20px_rgba(0,0,0,0.15)] hover:scale-110'}`}
+            className={`border-[1.5px] flex flex-col items-center justify-center relative overflow-hidden shadow-[0_15px_40px_-15px_rgba(0,0,0,0.1)] ${uploadExpanded ? 'border-white/50 border-dashed hover:bg-white/40' : 'border-white/30 border-solid shadow-[0_10px_20px_rgba(0,0,0,0.15)] hover:scale-110'}`}
             style={{ padding: uploadExpanded ? '2rem' : '0' }}
         >
 
