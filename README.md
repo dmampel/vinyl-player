@@ -2,6 +2,8 @@
 
 Welcome to **Really Cool Vinyl**! An interactive experience designed to unwind, enjoy, and explore your favorite music in a visually unique environment.
 
+🔗 **Live demo:** https://vinyl-player-beta.vercel.app/
+
 ---
 
 ## 🌟 The Concept
