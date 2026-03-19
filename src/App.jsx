@@ -7,6 +7,7 @@ import ControlsCard from './components/ControlsCard';
 import PlaylistCard from './components/PlaylistCard';
 import WidgetButton from './components/WidgetButton';
 import UploadWidget from './components/UploadWidget';
+import { getAllTracks, saveTrack, deleteTrack, clearAllTracks } from './utils/db';
 
 export default function App() {
   const [playlist, setPlaylist] = useState([]);
@@ -25,6 +26,7 @@ export default function App() {
     upload: true,
     playlist: false
   });
+  const [showAutoplayOverlay, setShowAutoplayOverlay] = useState(false);
 
   const audioRef = useRef(null);
   const constraintsRef = useRef(null);
@@ -38,15 +40,27 @@ export default function App() {
 
   const currentTrack = currentIndex >= 0 ? playlist[currentIndex] : null;
 
-  const handleUpload = (e) => {
+  const handleUpload = async (e) => {
     const files = Array.from(e.target.files);
     if (!files.length) return;
 
-    const newTracks = files.filter(f => f.type.startsWith('audio/')).map(file => ({
-      file,
-      url: URL.createObjectURL(file),
-      name: file.name.replace(/\.[^/.]+$/, "")
-    }));
+    const audioFiles = files.filter(f => f.type.startsWith('audio/'));
+    
+    const newTracks = [];
+    for (const file of audioFiles) {
+      const name = file.name.replace(/\.[^/.]+$/, "");
+      try {
+        const id = await saveTrack(file, name);
+        newTracks.push({
+          id,
+          file,
+          url: URL.createObjectURL(file),
+          name
+        });
+      } catch (error) {
+        console.error("Error saving track to DB:", error);
+      }
+    }
 
     setPlaylist(prev => [...prev, ...newTracks]);
 
@@ -55,29 +69,44 @@ export default function App() {
     }
   };
 
-  const handleRemoveTrack = (e, index) => {
+  const handleRemoveTrack = async (e, index) => {
     e.stopPropagation();
-    const newPlaylist = [...playlist];
-    URL.revokeObjectURL(newPlaylist[index].url);
-    newPlaylist.splice(index, 1);
-    setPlaylist(newPlaylist);
+    const trackToRemove = playlist[index];
+    
+    try {
+      if (trackToRemove.id) {
+        await deleteTrack(trackToRemove.id);
+      }
+      
+      const newPlaylist = [...playlist];
+      URL.revokeObjectURL(newPlaylist[index].url);
+      newPlaylist.splice(index, 1);
+      setPlaylist(newPlaylist);
 
-    if (newPlaylist.length === 0) {
-      setCurrentIndex(-1);
-      setIsPlaying(false);
-    } else if (index === currentIndex) {
-      const nextIdx = index >= newPlaylist.length ? newPlaylist.length - 1 : index;
-      setCurrentIndex(nextIdx);
-    } else if (index < currentIndex) {
-      setCurrentIndex(currentIndex - 1);
+      if (newPlaylist.length === 0) {
+        setCurrentIndex(-1);
+        setIsPlaying(false);
+      } else if (index === currentIndex) {
+        const nextIdx = index >= newPlaylist.length ? newPlaylist.length - 1 : index;
+        setCurrentIndex(nextIdx);
+      } else if (index < currentIndex) {
+        setCurrentIndex(currentIndex - 1);
+      }
+    } catch (error) {
+      console.error("Error deleting track:", error);
     }
   };
 
-  const handleClearPlaylist = () => {
-    playlist.forEach(t => URL.revokeObjectURL(t.url));
-    setPlaylist([]);
-    setCurrentIndex(-1);
-    setIsPlaying(false);
+  const handleClearPlaylist = async () => {
+    try {
+      await clearAllTracks();
+      playlist.forEach(t => URL.revokeObjectURL(t.url));
+      setPlaylist([]);
+      setCurrentIndex(-1);
+      setIsPlaying(false);
+    } catch (error) {
+      console.error("Error clearing playlist:", error);
+    }
   };
 
   const togglePlay = () => {
@@ -147,12 +176,37 @@ export default function App() {
     }
   };
 
+  // Load tracks from DB on mount
+  useEffect(() => {
+    const loadTracks = async () => {
+      try {
+        const savedTracks = await getAllTracks();
+        if (savedTracks.length > 0) {
+          const formattedTracks = savedTracks.map(track => ({
+            ...track,
+            url: URL.createObjectURL(track.file)
+          }));
+          setPlaylist(formattedTracks);
+          setCurrentIndex(0);
+          setIsPlaying(true);
+        }
+      } catch (error) {
+        console.error("Error loading tracks from DB:", error);
+      }
+    };
+    loadTracks();
+  }, []);
+
   useEffect(() => {
     if (audioRef.current && currentTrack) {
       audioRef.current.src = currentTrack.url;
       audioRef.current.load();
       if (isPlaying) {
-        audioRef.current.play().catch(console.error);
+        audioRef.current.play().catch(error => {
+          console.error("Autoplay failed:", error);
+          setIsPlaying(false);
+          setShowAutoplayOverlay(true);
+        });
       }
     } else if (!currentTrack && audioRef.current) {
       audioRef.current.src = "";
@@ -301,6 +355,44 @@ export default function App() {
           <WidgetButton toggleWidget={toggleWidget} widgets={widgets} widgetType="playlist" title="Playlist" icon={<ListMusic className="w-6 h-6" />} />
         </div>
       )}
+
+      {/* Autoplay Overlay */}
+      <AnimatePresence>
+        {showAutoplayOverlay && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => {
+              setShowAutoplayOverlay(false);
+              setIsPlaying(true);
+            }}
+            className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-md flex flex-col items-center justify-center cursor-pointer group"
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="flex flex-col items-center"
+            >
+              <div className="w-24 h-24 rounded-full bg-white/20 border-2 border-white/50 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-500 shadow-2xl">
+                <Play className="w-10 h-10 text-white fill-white ml-1" />
+              </div>
+              <h2 className="text-white text-2xl font-bold tracking-tight mb-2">Toca para empezar</h2>
+              <p className="text-white/60 font-medium">Pulsa en cualquier parte para activar la música</p>
+              
+              <motion.div 
+                animate={{ y: [0, 10, 0] }}
+                transition={{ duration: 2, repeat: Infinity }}
+                className="mt-12 text-white/30"
+              >
+                <div className="w-6 h-10 border-2 border-white/30 rounded-full flex justify-center p-1">
+                  <div className="w-1.5 h-1.5 bg-white/30 rounded-full" />
+                </div>
+              </motion.div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <audio ref={audioRef} onTimeUpdate={handleTimeUpdate} onLoadedMetadata={handleLoadedMetadata} onEnded={handleEnded} className="hidden" />
     </div>
